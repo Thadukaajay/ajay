@@ -6,8 +6,8 @@
 trigger:
 - main
 
-pool: "AJAY"
-
+pool: #"AJAY"
+    vmImage: ubuntu-latest 
 
 steps:
 - script: echo Hello, world!
