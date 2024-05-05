@@ -1,242 +1,162 @@
-    #Created by Clatyon Thompson
-    #Last edited 1/4
-
-    parameters:
-      - name: Clientcode
-        displayName: Client Code
-        type: string
-        default: 
-      - name: username
-        displayName: UserName
-        type: string
-        default: 
-
-    trigger:
+parameters:
+- name: Clientcode
+  displayName: Client Code
+  type: string
+  default: ''
+- name: username
+  displayName: UserName
+  type: string
+  default: ''
+trigger:
+  branches:
+    include:
     - None
-
-
-    name: ${{ parameters.Clientcode }}.${{ parameters.username }}
-
-    pr: none
-
-
-    stages: 
-      - stage: 
-        displayName: Add User to SCALE 
-        jobs:
-        - job: getkey
-          pool: Hosted Windows 2019 with VS2019
+name: aptg.athompson
+# pr:
+#   enabled: none
+stages:
+- stage: ''
+  displayName: Add User to SCALE
+  jobs:
+  - job: getkey
+    pool:
+      name: Hosted Windows 2019 with VS2019
+    steps:
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: 'SaaSSCALEAZConnection-All'
+        scriptType: 'ps'
+        scriptLocation: 'scriptPath'
+        scriptPath: 'getSecret.ps1'
+        failOnStandardError: true
+      enabled: false
+    - task: AzurePowerShell@5
+      displayName: key
+      inputs:
+        azureSubscription: 'Mindtree_Azure_DevOps (e9735a76-e0fb-4c01-b485-f95afa5949d0)'
+        ScriptType: 'InlineScript'
+        Inline: |
+          function SendEmail {
+          
+              $content = '
+          
+          <p>Hi Team,<br>
+           <br>
+          Could you please provide the Manhattan Signature for the user below to access the SCALE Application?</p>
+          
+          <p>athompson@manh.com</p>
+          
+          '
+          
+              #Get SendGrid Key
+              $SENDGRID_API_KEY = Get-AzKeyVaultSecret `
+                  -VaultName "ScaleSaaSServiceAccounts" `
+                  -Name "SendGrid-AzureFunctions-Test-APIKey" `
+                  -AsPlainText -DefaultProfile $AzureContext
+              
+              #Create auth headers
+              $headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
+              $headers.Add("Authorization", "Bearer " + $SENDGRID_API_KEY)
+              $headers.Add("Content-Type", "application/json")
+              
+              # To Add more people to the list add these lines
+              #
+              #                @{
+              #                    email = "athompson@manh.com"
+              #                },
+              
+              #Create Body of email
+              $body = @{
+                  personalizations = @(
+                      @{
+                          to = @(
+                              @{
+                                  email = "saas-scale@manh.com"
+                              },
+                              @{
+                                  email = "ClientSupport@manh.com"
+                              },
+                              @{
+                                  email = "$(Build.RequestedForEmail)"
+                              },
+                              @{
+                                email = "sfdc_callcenter@manh.com"
+                              },
+                              @{
+                                email = "elee@manh.com"
+                              }
+                          )
+                      }
+                  )
+                  from             = @{
+                      email = "$(Build.RequestedForEmail)"
+                  }
+                  subject          = "Manh Signature Request"
+                  content          = @(
+                      @{
+                          type  = "text/html"
+                          value = $content
+                      
+                      }
+                  )
+              
+              
+              }
+              
+              #Convert body to json for email API call
+              $bodyJson = $body | ConvertTo-Json -Depth 4
+              
+              #Inkove sendgrid API
+              $response = Invoke-RestMethod -Uri https://api.sendgrid.com/v3/mail/send -Method Post -Headers $headers -Body $bodyJson
+              write-output "Email Sent"
+          }
+          
+          $secret = Get-AzKeyVaultSecret -VaultName "ScaleSignautres" -Name athompson -AsPlainText
+              
+          if ($secret.Length -lt 5) {
+              SendEmail
+              Write-Error "Manh key not present in the key vault. Email sent to Call Center..." -ErrorAction Stop
+          
+          }else {
+              Write-Host "##vso[task.setvariable variable=MANHKey;isoutput=true]$secret"
+          }
+        FailOnStandardError: true
+        azurePowerShellVersion: 'LatestVersion'
+      name: key
+  - deployment: ''
+    dependsOn:
+    - getkey
+    variables:
+    - name: mykey
+      value: $[ dependencies.getkey.outputs['key.MANHKey'] ]
+    environment:
+      name: SCALE STAGE SERVERS 2023
+      resourceType: virtualMachine
+    strategy:
+      runOnce:
+        deploy:
           steps:
-          - task: AzureCLI@2
+          - task: PowerShell@2
             inputs:
-              azureSubscription: 'SaaSSCALEAZConnection-All'
-              scriptType: 'ps'
-              scriptLocation: 'scriptPath'
-              scriptPath: 'getSecret.ps1'
-              failOnStandardError: true
-            enabled: false
-          - task: AzurePowerShell@5
-            displayName: key
+              targetType: 'inline'
+              script: "#Created by Clayton Thompson\nimport-module \"C:\\ManhattanAssociates\\ManhattanSCALE\\bin\\ActiveSCALEPowerShell.dll\"\n\n$hostname = hostname\n$baseenvirname = \"aptg\"\n$baseenvirname = $baseenvirname.Trim()\n$environmentnamewildcard = $baseenvirname + \"*\"\n$username = \"athompson\"\n\nif ($hostname -like \"st*\") { \n    $baseenvirname = $baseenvirname + \"stg\"\n}elseif ($hostname -like \"qt*\") {\n    $baseenvirname = $baseenvirname + \"qa\"\n}\nif( $hostname -like '*web*'){\n  #try {\n  #    $results = @(Get-ScaleEnvironments)\n  #    $presentenvs = $results -split \" \"\n  #}\n  #catch {\n  #  $presentenvs = $environmentnamewildcard\n  #    Write-Host \"Get-SCALEEnvironments command failed\"\n  #}\n  \n    if (($presentenvs -like $environmentnamewildcard) -or (hostname -like \"*f6\")) {\n        write-host $baseenvirname \"is present on this server. Continuing to add user...\"\n      $email = -join ($username, \"@manh.com\")\n        Add-ScaleUser -UserName $username -EnvironmentName $baseenvirname -Warehouse '' -ManhSignature $(mykey)  -EmailAddress $email\n        Add-ScaleEnvironmentUserAuthority -EnvironmentName $baseenvirname -UserName $username\n    }else {\n      write-host $baseenvirname \"is NOT present on this server. Cancelling install...\"\n      exit\n    }\n    \n}else{\n    Write-Error \"Server is not a Web server. Exiting...\"\n    exit\n}\n"
+              failOnStderr: false
+  - deployment: ''
+    dependsOn:
+    - getkey
+    variables:
+    - name: mykey
+      value: $[ dependencies.getkey.outputs['key.MANHKey'] ]
+    environment:
+      name: SCALE PROD SERVERS 2023
+      resourceType: virtualMachine
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: PowerShell@2
             inputs:
-              azureSubscription: 'Mindtree_Azure_DevOps (e9735a76-e0fb-4c01-b485-f95afa5949d0)'
-              ScriptType: 'InlineScript'
-              Inline: |
-                function SendEmail {
-                
-                    $content = '
-                
-                <p>Hi Team,<br>
-                 <br>
-                Could you please provide the Manhattan Signature for the user below to access the SCALE Application?</p>
-                
-                <p>${{ parameters.username }}@manh.com</p>
-                
-                '
-                
-                    #Get SendGrid Key
-                    $SENDGRID_API_KEY = Get-AzKeyVaultSecret `
-                        -VaultName "ScaleSaaSServiceAccounts" `
-                        -Name "SendGrid-AzureFunctions-Test-APIKey" `
-                        -AsPlainText -DefaultProfile $AzureContext
-                    
-                    #Create auth headers
-                    $headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
-                    $headers.Add("Authorization", "Bearer " + $SENDGRID_API_KEY)
-                    $headers.Add("Content-Type", "application/json")
-                    
-                    # To Add more people to the list add these lines
-                    #
-                    #                @{
-                    #                    email = "athompson@manh.com"
-                    #                },
-                    
-                    #Create Body of email
-                    $body = @{
-                        personalizations = @(
-                            @{
-                                to = @(
-                                    @{
-                                        email = "saas-scale@manh.com"
-                                    },
-                                    @{
-                                        email = "ClientSupport@manh.com"
-                                    },
-                                    @{
-                                        email = "$(Build.RequestedForEmail)"
-                                    },
-                                    @{
-                                      email = "sfdc_callcenter@manh.com"
-                                    },
-                                    @{
-                                      email = "elee@manh.com"
-                                    }
-                                )
-                            }
-                        )
-                        from             = @{
-                            email = "$(Build.RequestedForEmail)"
-                        }
-                        subject          = "Manh Signature Request"
-                        content          = @(
-                            @{
-                                type  = "text/html"
-                                value = $content
-                            
-                            }
-                        )
-                    
-                    
-                    }
-                    
-                    #Convert body to json for email API call
-                    $bodyJson = $body | ConvertTo-Json -Depth 4
-                    
-                    #Inkove sendgrid API
-                    $response = Invoke-RestMethod -Uri https://api.sendgrid.com/v3/mail/send -Method Post -Headers $headers -Body $bodyJson
-                    write-output "Email Sent"
-                }
-                
-                $secret = Get-AzKeyVaultSecret -VaultName "ScaleSignautres" -Name ${{ parameters.username }} -AsPlainText
-                    
-                if ($secret.Length -lt 5) {
-                    SendEmail
-                    Write-Error "Manh key not present in the key vault. Email sent to Call Center..." -ErrorAction Stop
-                
-                }else {
-                    Write-Host "##vso[task.setvariable variable=MANHKey;isoutput=true]$secret"
-                }
-              FailOnStandardError: true
-              azurePowerShellVersion: 'LatestVersion'
-            name: key
+              targetType: 'inline'
+              script: "#Created by Clayton Thompson\nimport-module \"C:\\ManhattanAssociates\\ManhattanSCALE\\bin\\ActiveSCALEPowerShell.dll\"\n$hostname = hostname\n$baseenvirname = \"aptg\"\n$baseenvirname = $baseenvirname.Trim()\n$environmentnamewildcard = $baseenvirname + \"*\"\n$username = \"athompson\"\n#$username = $username.ToString()\n\nif ($hostname -like \"st*\") { \n    $baseenvirname = $baseenvirname + \"stg\"\n}elseif ($hostname -like \"qt*\") {\n    $baseenvirname = $baseenvirname + \"qa\"\n}\n\nif( $hostname -like '*web*'){\n  #try {\n      $results = @(Get-ScaleEnvironments)\n  #}\n  #catch {\n  #    Write-Host \"Get-SCALEEnvironments command failed\"\n  #}\n    $presentenvs = $results -split \" \"\n    if ($presentenvs -like $environmentnamewildcard) {\n        write-host $baseenvirname \"is present on this server. Continuing to add user...\"\n      $email = -join ($username, \"@manh.com\")\n        Add-ScaleUser -UserName $username -EnvironmentName $baseenvirname -Warehouse '' -ManhSignature $(mykey)  -EmailAddress $email\n        Add-ScaleEnvironmentUserAuthority -EnvironmentName $baseenvirname -UserName $username\n    }else {\n      write-host $baseenvirname \"is NOT present on this server. Cancelling install...\"\n      exit\n    }\n    \n}else{\n    Write-Error \"Server is not a Web server. Exiting...\"\n    exit\n}\n"
+              failOnStderr: false
 
-        - deployment:
-          dependsOn: getkey
-          variables: 
-            mykey: $[ dependencies.getkey.outputs['key.MANHKey'] ]
-          environment:
-              name: SCALE STAGE SERVERS 2023
-              resourceType: virtualMachine
-          strategy:
-              runOnce:
-                deploy:
-                  steps:
-                  - task: PowerShell@2
-                    inputs:
-                      targetType: 'inline'
-                      script: |
-                              #Created by Clayton Thompson
-                              import-module "C:\ManhattanAssociates\ManhattanSCALE\bin\ActiveSCALEPowerShell.dll"
-                              
-                              $hostname = hostname
-                              $baseenvirname = "${{ parameters.Clientcode }}"
-                              $baseenvirname = $baseenvirname.Trim()
-                              $environmentnamewildcard = $baseenvirname + "*"
-                              $username = "${{ parameters.username }}"
-
-                              if ($hostname -like "st*") { 
-                                  $baseenvirname = $baseenvirname + "stg"
-                              }elseif ($hostname -like "qt*") {
-                                  $baseenvirname = $baseenvirname + "qa"
-                              }
-                              if( $hostname -like '*web*'){
-                                #try {
-                                #    $results = @(Get-ScaleEnvironments)
-                                #    $presentenvs = $results -split " "
-                                #}
-                                #catch {
-                                #  $presentenvs = $environmentnamewildcard
-                                #    Write-Host "Get-SCALEEnvironments command failed"
-                                #}
-                                
-                                  if (($presentenvs -like $environmentnamewildcard) -or (hostname -like "*f6")) {
-                                      write-host $baseenvirname "is present on this server. Continuing to add user..."
-                                    $email = -join ($username, "@manh.com")
-                                      Add-ScaleUser -UserName $username -EnvironmentName $baseenvirname -Warehouse '' -ManhSignature $(mykey)  -EmailAddress $email
-                                      Add-ScaleEnvironmentUserAuthority -EnvironmentName $baseenvirname -UserName $username
-                                  }else {
-                                    write-host $baseenvirname "is NOT present on this server. Cancelling install..."
-                                    exit
-                                  }
-                                  
-                              }else{
-                                  Write-Error "Server is not a Web server. Exiting..."
-                                  exit
-                              }
-                              
-                      failOnStderr: false
-        - deployment:
-          dependsOn: getkey
-          variables: 
-            mykey: $[ dependencies.getkey.outputs['key.MANHKey'] ]
-          environment:
-              name: SCALE PROD SERVERS 2023
-              resourceType: virtualMachine
-          strategy:
-              runOnce:
-                deploy:
-                  steps:
-                  - task: PowerShell@2
-                    inputs:
-                      targetType: 'inline'
-                      script: |
-                              #Created by Clayton Thompson
-
-                              $hostname = hostname
-                              $baseenvirname = "${{ parameters.Clientcode }}"
-                              $baseenvirname = $baseenvirname.Trim()
-                              $environmentnamewildcard = $baseenvirname + "*"
-                              $username = "${{ parameters.username }}"
-                              #$username = $username.ToString()
-
-                              if ($hostname -like "st*") { 
-                                  $baseenvirname = $baseenvirname + "stg"
-                              }elseif ($hostname -like "qt*") {
-                                  $baseenvirname = $baseenvirname + "qa"
-                              }
-
-                              if( $hostname -like '*web*'){
-                                try {
-                                    $results = @(Get-ScaleEnvironments)
-                                }
-                                catch {
-                                    Write-Host "Get-SCALEEnvironments command failed"
-                                }
-                                  $presentenvs = $results -split " "
-                                  if ($presentenvs -like $environmentnamewildcard) {
-                                      write-host $baseenvirname "is present on this server. Continuing to add user..."
-                                    $email = -join ($username, "@manh.com")
-                                      Add-ScaleUser -UserName $username -EnvironmentName $baseenvirname -Warehouse '' -ManhSignature $(mykey)  -EmailAddress $email
-                                      Add-ScaleEnvironmentUserAuthority -EnvironmentName $baseenvirname -UserName $username
-                                  }else {
-                                    write-host $baseenvirname "is NOT present on this server. Cancelling install..."
-                                    exit
-                                  }
-                                  
-                              }else{
-                                  Write-Error "Server is not a Web server. Exiting..."
-                                  exit
-                              }
-                              
-                      failOnStderr: false
-
-                  
