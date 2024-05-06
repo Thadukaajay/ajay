@@ -24,7 +24,7 @@ stages:
     steps:
     - task: AzureCLI@2
       inputs:
-        azureSubscription: 'SaaSSCALEAZConnection-All'
+        azureSubscription: 'Mindtree_Azure_DevOps (e9735a76-e0fb-4c01-b485-f95afa5949d0)'
         scriptType: 'ps'
         scriptLocation: 'scriptPath'
         scriptPath: 'getSecret.ps1'
@@ -37,98 +37,26 @@ stages:
         ScriptType: 'InlineScript'
         Inline: |
           function SendEmail {
-          
-              $content = '
-          
-          <p>Hi Team,<br>
-           <br>
-          Could you please provide the Manhattan Signature for the user below to access the SCALE Application?</p>
-          
-          <p>athompson@manh.com</p>
-          
-          '
-          
-              #Get SendGrid Key
-              $SENDGRID_API_KEY = Get-AzKeyVaultSecret `
-                  -VaultName "ScaleSaaSServiceAccounts" `
-                  -Name "SendGrid-AzureFunctions-Test-APIKey" `
-                  -AsPlainText -DefaultProfile $AzureContext
-              
-              #Create auth headers
-              $headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
-              $headers.Add("Authorization", "Bearer " + $SENDGRID_API_KEY)
-              $headers.Add("Content-Type", "application/json")
-              
-              # To Add more people to the list add these lines
-              #
-              #                @{
-              #                    email = "athompson@manh.com"
-              #                },
-              
-              #Create Body of email
-              $body = @{
-                  personalizations = @(
-                      @{
-                          to = @(
-                              @{
-                                  email = "saas-scale@manh.com"
-                              },
-                              @{
-                                  email = "ClientSupport@manh.com"
-                              },
-                              @{
-                                  email = "$(Build.RequestedForEmail)"
-                              },
-                              @{
-                                email = "sfdc_callcenter@manh.com"
-                              },
-                              @{
-                                email = "elee@manh.com"
-                              }
-                          )
-                      }
-                  )
-                  from             = @{
-                      email = "$(Build.RequestedForEmail)"
-                  }
-                  subject          = "Manh Signature Request"
-                  content          = @(
-                      @{
-                          type  = "text/html"
-                          value = $content
-                      
-                      }
-                  )
-              
-              
-              }
-              
-              #Convert body to json for email API call
-              $bodyJson = $body | ConvertTo-Json -Depth 4
-              
-              #Inkove sendgrid API
-              $response = Invoke-RestMethod -Uri https://api.sendgrid.com/v3/mail/send -Method Post -Headers $headers -Body $bodyJson
-              write-output "Email Sent"
+              # Your email sending function here
           }
           
-          $secret = Get-AzKeyVaultSecret -VaultName "ScaleSignautres" -Name athompson -AsPlainText
+          $secret = Get-AzKeyVaultSecret -VaultName "ajay1" -Name "ajay" -AsPlainText
               
           if ($secret.Length -lt 5) {
               SendEmail
-              Write-Error "Manh key not present in the key vault. Email sent to Call Center..." -ErrorAction Stop
-          
+              Write-Error "Key not present in the key vault. Email sent..." -ErrorAction Stop
           }else {
-              Write-Host "##vso[task.setvariable variable=MANHKey;isoutput=true]$secret"
+              Write-Host "##vso[task.setvariable variable=YourVariable;isoutput=true]$secret"
           }
         FailOnStandardError: true
         azurePowerShellVersion: 'LatestVersion'
       name: key
   - deployment: ''
     dependsOn:
-    - getkey
+    - getKey
     variables:
-    - name: mykey
-      value: $[ dependencies.getkey.outputs['key.MANHKey'] ]
+    - name: myKey
+      value: $[ dependencies.getKey.outputs['key.YourVariable'] ]
     environment:
       name: SCALE STAGE SERVERS 2023
       resourceType: virtualMachine
