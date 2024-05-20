@@ -11,9 +11,7 @@ trigger:
   branches:
     include:
     - None
-name: aptg.athompson
-# pr:
-#   enabled: none
+name: AJAY
 stages:
 - stage: ''
   displayName: Add User to SCALE
@@ -22,41 +20,28 @@ stages:
     pool:
       name: Hosted Windows 2019 with VS2019
     steps:
-    - task: AzureCLI@2
+    - task: PowerShell@2
       inputs:
-        azureSubscription: 'Mindtree_Azure_DevOps (e9735a76-e0fb-4c01-b485-f95afa5949d0)'
-        scriptType: 'ps'
-        scriptLocation: 'scriptPath'
-        scriptPath: 'getSecret.ps1'
-        failOnStandardError: true
+        targetType: 'inline'
+        script: |
+          Write-Output "Azure Subscription: affffffff"
+          Write-Output "Script Path: getSecret.ps1"
       enabled: false
-    - task: AzurePowerShell@5
+    - task: PowerShell@2
       displayName: key
       inputs:
-        azureSubscription: 'Mindtree_Azure_DevOps (e9735a76-e0fb-4c01-b485-f95afa5949d0)'
-        ScriptType: 'InlineScript'
-        Inline: |
-          function SendEmail {
-              # Your email sending function here
-          }
+        targetType: 'inline'
+        script: |
+          # Write your PowerShell commands here.
           
-          $secret = Get-AzKeyVaultSecret -VaultName "ajay1" -Name "ajay" -AsPlainText
-              
-          if ($secret.Length -lt 5) {
-              SendEmail
-              Write-Error "Key not present in the key vault. Email sent..." -ErrorAction Stop
-          }else {
-              Write-Host "##vso[task.setvariable variable=YourVariable;isoutput=true]$secret"
-          }
-        FailOnStandardError: true
-        azurePowerShellVersion: 'LatestVersion'
+          Write-Host "Hello World"
       name: key
   - deployment: ''
     dependsOn:
-    - getKey
+    - getkey
     variables:
-    - name: myKey
-      value: $[ dependencies.getKey.outputs['key.YourVariable'] ]
+    - name: mykey
+      value: $[ dependencies.getkey.outputs['key.MANHKey'] ]
     environment:
       name: SCALE STAGE SERVERS 2023
       resourceType: virtualMachine
@@ -68,44 +53,8 @@ stages:
             inputs:
               targetType: 'inline'
               script: |
-                #Created by Clayton Thompson
-                import-module "C:\ManhattanAssociates\ManhattanSCALE\bin\ActiveSCALEPowerShell.dll"
-                
-                $hostname = hostname
-                $baseenvirname = "aptg"
-                $baseenvirname = $baseenvirname.Trim()
-                $environmentnamewildcard = $baseenvirname + "*"
-                $username = "athompson"
-                
-                if ($hostname -like "st*") { 
-                    $baseenvirname = $baseenvirname + "stg"
-                }elseif ($hostname -like "qt*") {
-                    $baseenvirname = $baseenvirname + "qa"
-                }
-                if( $hostname -like '*web*'){
-                  #try {
-                  #    $results = @(Get-ScaleEnvironments)
-                  #    $presentenvs = $results -split " "
-                  #}
-                  #catch {
-                  #  $presentenvs = $environmentnamewildcard
-                  #    Write-Host "Get-SCALEEnvironments command failed"
-                  #}
-                  
-                    if (($presentenvs -like $environmentnamewildcard) -or (hostname -like "*f6")) {
-                        write-host $baseenvirname "is present on this server. Continuing to add user..."
-                      $email = -join ($username, "@manh.com")
-                        Add-ScaleUser -UserName $username -EnvironmentName $baseenvirname -Warehouse '' -ManhSignature $(mykey)  -EmailAddress $email
-                        Add-ScaleEnvironmentUserAuthority -EnvironmentName $baseenvirname -UserName $username
-                    }else {
-                      write-host $baseenvirname "is NOT present on this server. Cancelling install..."
-                      exit
-                    }
-                    
-                }else{
-                    Write-Error "Server is not a Web server. Exiting..."
-                    exit
-                }
+                Write-Output "Environment Name: SCALE STAGE SERVERS 2023"
+                Write-Output "My Key: $(mykey)"
   - deployment: ''
     dependsOn:
     - getkey
@@ -123,41 +72,8 @@ stages:
             inputs:
               targetType: 'inline'
               script: |
-                #Created by Clayton Thompson
-                import-module "C:\ManhattanAssociates\ManhattanSCALE\bin\ActiveSCALEPowerShell.dll"
-                $hostname = hostname
-                $baseenvirname = "aptg"
-                $baseenvirname = $baseenvirname.Trim()
-                $environmentnamewildcard = $baseenvirname + "*"
-                $username = "athompson"
-                #$username = $username.ToString()
-                
-                if ($hostname -like "st*") { 
-                    $baseenvirname = $baseenvirname + "stg"
-                }elseif ($hostname -like "qt*") {
-                    $baseenvirname = $baseenvirname + "qa"
-                }
-                
-                if( $hostname -like '*web*'){
-                  #try {
-                      $results = @(Get-ScaleEnvironments)
-                  #}
-                  #catch {
-                  #    Write-Host "Get-SCALEEnvironments command failed"
-                  #}
-                    $presentenvs = $results -split " "
-                    if ($presentenvs -like $environmentnamewildcard) {
-                        write-host $baseenvirname "is present on this server. Continuing to add user..."
-                      $email = -join ($username, "@manh.com")
-                        Add-ScaleUser -UserName $username -EnvironmentName $baseenvirname -Warehouse '' -ManhSignature $(mykey)  -EmailAddress $email
-                        Add-ScaleEnvironmentUserAuthority -EnvironmentName $baseenvirname -UserName $username
-                    }else {
-                      write-host $baseenvirname "is NOT present on this server. Cancelling install..."
-                      exit
-                    }
-                    
-                }else{
-                    Write-Error "Server is not a Web server. Exiting..."
-                    exit
-                }
+                Write-Output "Environment Name: SCALE PROD SERVERS 2023"
+                Write-Output "My Key: $(mykey)"
+
+
 
