@@ -67,8 +67,45 @@ stages:
           - task: PowerShell@2
             inputs:
               targetType: 'inline'
-              script: "#Created by Clayton Thompson\nimport-module \"C:\\ManhattanAssociates\\ManhattanSCALE\\bin\\ActiveSCALEPowerShell.dll\"\n\n$hostname = hostname\n$baseenvirname = \"aptg\"\n$baseenvirname = $baseenvirname.Trim()\n$environmentnamewildcard = $baseenvirname + \"*\"\n$username = \"athompson\"\n\nif ($hostname -like \"st*\") { \n    $baseenvirname = $baseenvirname + \"stg\"\n}elseif ($hostname -like \"qt*\") {\n    $baseenvirname = $baseenvirname + \"qa\"\n}\nif( $hostname -like '*web*'){\n  #try {\n  #    $results = @(Get-ScaleEnvironments)\n  #    $presentenvs = $results -split \" \"\n  #}\n  #catch {\n  #  $presentenvs = $environmentnamewildcard\n  #    Write-Host \"Get-SCALEEnvironments command failed\"\n  #}\n  \n    if (($presentenvs -like $environmentnamewildcard) -or (hostname -like \"*f6\")) {\n        write-host $baseenvirname \"is present on this server. Continuing to add user...\"\n      $email = -join ($username, \"@manh.com\")\n        Add-ScaleUser -UserName $username -EnvironmentName $baseenvirname -Warehouse '' -ManhSignature $(mykey)  -EmailAddress $email\n        Add-ScaleEnvironmentUserAuthority -EnvironmentName $baseenvirname -UserName $username\n    }else {\n      write-host $baseenvirname \"is NOT present on this server. Cancelling install...\"\n      exit\n    }\n    \n}else{\n    Write-Error \"Server is not a Web server. Exiting...\"\n    exit\n}\n"
-              failOnStderr: false
+              script: |
+                #Created by Clayton Thompson
+                import-module "C:\ManhattanAssociates\ManhattanSCALE\bin\ActiveSCALEPowerShell.dll"
+                
+                $hostname = hostname
+                $baseenvirname = "aptg"
+                $baseenvirname = $baseenvirname.Trim()
+                $environmentnamewildcard = $baseenvirname + "*"
+                $username = "athompson"
+                
+                if ($hostname -like "st*") { 
+                    $baseenvirname = $baseenvirname + "stg"
+                }elseif ($hostname -like "qt*") {
+                    $baseenvirname = $baseenvirname + "qa"
+                }
+                if( $hostname -like '*web*'){
+                  #try {
+                  #    $results = @(Get-ScaleEnvironments)
+                  #    $presentenvs = $results -split " "
+                  #}
+                  #catch {
+                  #  $presentenvs = $environmentnamewildcard
+                  #    Write-Host "Get-SCALEEnvironments command failed"
+                  #}
+                  
+                    if (($presentenvs -like $environmentnamewildcard) -or (hostname -like "*f6")) {
+                        write-host $baseenvirname "is present on this server. Continuing to add user..."
+                      $email = -join ($username, "@manh.com")
+                        Add-ScaleUser -UserName $username -EnvironmentName $baseenvirname -Warehouse '' -ManhSignature $(mykey)  -EmailAddress $email
+                        Add-ScaleEnvironmentUserAuthority -EnvironmentName $baseenvirname -UserName $username
+                    }else {
+                      write-host $baseenvirname "is NOT present on this server. Cancelling install..."
+                      exit
+                    }
+                    
+                }else{
+                    Write-Error "Server is not a Web server. Exiting..."
+                    exit
+                }
   - deployment: ''
     dependsOn:
     - getkey
@@ -85,6 +122,42 @@ stages:
           - task: PowerShell@2
             inputs:
               targetType: 'inline'
-              script: "#Created by Clayton Thompson\nimport-module \"C:\\ManhattanAssociates\\ManhattanSCALE\\bin\\ActiveSCALEPowerShell.dll\"\n$hostname = hostname\n$baseenvirname = \"aptg\"\n$baseenvirname = $baseenvirname.Trim()\n$environmentnamewildcard = $baseenvirname + \"*\"\n$username = \"athompson\"\n#$username = $username.ToString()\n\nif ($hostname -like \"st*\") { \n    $baseenvirname = $baseenvirname + \"stg\"\n}elseif ($hostname -like \"qt*\") {\n    $baseenvirname = $baseenvirname + \"qa\"\n}\n\nif( $hostname -like '*web*'){\n  #try {\n      $results = @(Get-ScaleEnvironments)\n  #}\n  #catch {\n  #    Write-Host \"Get-SCALEEnvironments command failed\"\n  #}\n    $presentenvs = $results -split \" \"\n    if ($presentenvs -like $environmentnamewildcard) {\n        write-host $baseenvirname \"is present on this server. Continuing to add user...\"\n      $email = -join ($username, \"@manh.com\")\n        Add-ScaleUser -UserName $username -EnvironmentName $baseenvirname -Warehouse '' -ManhSignature $(mykey)  -EmailAddress $email\n        Add-ScaleEnvironmentUserAuthority -EnvironmentName $baseenvirname -UserName $username\n    }else {\n      write-host $baseenvirname \"is NOT present on this server. Cancelling install...\"\n      exit\n    }\n    \n}else{\n    Write-Error \"Server is not a Web server. Exiting...\"\n    exit\n}\n"
-              failOnStderr: false
+              script: |
+                #Created by Clayton Thompson
+                import-module "C:\ManhattanAssociates\ManhattanSCALE\bin\ActiveSCALEPowerShell.dll"
+                $hostname = hostname
+                $baseenvirname = "aptg"
+                $baseenvirname = $baseenvirname.Trim()
+                $environmentnamewildcard = $baseenvirname + "*"
+                $username = "athompson"
+                #$username = $username.ToString()
+                
+                if ($hostname -like "st*") { 
+                    $baseenvirname = $baseenvirname + "stg"
+                }elseif ($hostname -like "qt*") {
+                    $baseenvirname = $baseenvirname + "qa"
+                }
+                
+                if( $hostname -like '*web*'){
+                  #try {
+                      $results = @(Get-ScaleEnvironments)
+                  #}
+                  #catch {
+                  #    Write-Host "Get-SCALEEnvironments command failed"
+                  #}
+                    $presentenvs = $results -split " "
+                    if ($presentenvs -like $environmentnamewildcard) {
+                        write-host $baseenvirname "is present on this server. Continuing to add user..."
+                      $email = -join ($username, "@manh.com")
+                        Add-ScaleUser -UserName $username -EnvironmentName $baseenvirname -Warehouse '' -ManhSignature $(mykey)  -EmailAddress $email
+                        Add-ScaleEnvironmentUserAuthority -EnvironmentName $baseenvirname -UserName $username
+                    }else {
+                      write-host $baseenvirname "is NOT present on this server. Cancelling install..."
+                      exit
+                    }
+                    
+                }else{
+                    Write-Error "Server is not a Web server. Exiting..."
+                    exit
+                }
 
