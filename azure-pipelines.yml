@@ -11,7 +11,7 @@ trigger:
   branches:
     include:
     - None
-name: AJAY
+name: aja12
 stages:
 - stage: ''
   displayName: Add User to SCALE
